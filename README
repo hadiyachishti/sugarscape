@@ -5,8 +5,10 @@ Python implementation of the Sugarscape agent-based computational model introduc
 Inspired by previous work from Herve Lange (https://github.com/langerv/sugarscape) and Joshua Palicka (https://github.com/joshuapalicka/sugarscape).
 
 Requirements:
-Bash
 Python 3
+
+Optional Dependencies:
+Matplotlib
 TkInter
 
 Usage:
@@ -15,19 +17,23 @@ python sugarscape.py
 Makefile Options:
 make clean
     Clean up working files and logs created by the software.
-    Note: will remove any JSON files created by the other make options.
+    Note: This will remove any JSON files created by the other make options.
 
 make data
-    Run a number of random seeds comparing implemented decision models to the baseline greedy decisionmaking.
-    Note: results will be saved in the data subdirectory.
+    Run a number of random seeds comparing selected decision models.
+    Note: Results will be saved in the data subdirectory.
 
 make plots
     Generate graph plots from any JSON files in the data subdirectory.
-    Note: plots are dependent on a dataset existing and will create it if necessary.
+    Note: Plots are dependent on a dataset existing and will create it if necessary.
+
+make seeds
+    Generate a set of random seeds comparing selected decision models.
+    Note: Results will be saved in the data subdirectory.
 
 make setup
-    Change preconfigured settings for the simulation, data collection, and datset plotting.
-    Note: changed settings may alter files in-place if editing the simulation configuration or Makefile options.
+    Change preconfigured settings for the system Python alias.
+    Note: Changed settings may alter Makefile and configuration file in-place.
 
 make test
     Run the simulation using the default config.json file and storing a local log in the log.json file.
@@ -47,7 +53,7 @@ agent_replacement.json:
     Agent replacement with constant sugar growback (pgs. 32-33).
 
 seasonal_migration.json:
-    Agent migration with seasonal sugar growback (pgs. 43-45).
+    Agent migration with seasonal sugar growback (pgs. 44-46).
 
 pollution_formation.json:
     Agent sugar collection with constant sugar growback and pollution (pgs. 45-50).
@@ -104,18 +110,31 @@ agentBaseInterestRate: [float, float]
     Set the interest rate for an agent's lending as a percentage.
     Default: [0.0, 0.0]
 
-agentDecisionModel: string
-    Set the agent decision model for different decisionmaking.
-    Options: "altruisticHalfLookaheadBinary", "altruisticHalfLookaheadTop", "benthamHalfLookaheadBinary", "benthamHalfLookaheadTop", "benthamNoLookaheadBinary", "benthamNoLookaheadTop", "egoisticHalfLookaheadBinary", "egoisticHalfLookaheadTop", "none", "rawSugarscape"
-    Default: "none"
+agentDecisionModelLookaheadDiscount: [float, float]
+    Set the agent's discount applied to considering possible rewards in future timesteps.
+    Note: This feature is used in agent decision models besides the "none" and "rawSugarscape" models.
+    Default: [0, 0]
 
-agentDecisionModelData: object
-    Set additional data for the agent decision model.
-    Note: Not currently implemented.
+agentDecisionModelLookaheadFactor: float
+    Set the agent's consideration of future rewards out to the provided forecasting horizon.
+    Options: 0, 0.5
+    Note: This feature is used in agent decision models besides the "none" and "rawSugarscape" models.
+    Default: 0
 
 agentDecisionModelFactor: [float, float]
     Set the agent weight of their decision model over biological imperatives.
     Default: [0, 0]
+
+agentDecisionModels: [string, ...]
+    Set the agent decision models for different decisionmaking.
+    Options: "altruistBinary", "altruistTop", "benthamBinary", "benthamTop", "egoistBinary", "egoistTop", "negativeBentham", "none", "rawSugarscape"
+    Note: Adding either "HalfLookahead" or "NoLookahead" after a decision model name will enforce a particular decision model lookahead factor.
+    Default: ["none"]
+
+agentDecisionModelTribalFactor: [float, float]
+    Set how much agents prioritize the welfare of their own tribe members over others.
+    Note: Valid range is [0.0, 1.0], use -1 to disable.
+    Default: [-1, -1]
 
 agentFemaleInfertilityAge: [int, int]
     Set the timestep age at which female agents become infertile.
@@ -187,8 +206,8 @@ agentReplacements: int
     Default: 0
 
 agentSelfishnessFactor: [float, float]
-    Set the agent weight of how egoistic ethical decisions are
-    Note: Valid range [0.0, 1.0], use -1 to disable
+    Set the weight agents provide to their own welfare and to other agents.
+    Note: Valid range is [0.0, 1.0], use -1 to disable.
     Default: [-1, -1]
 
 agentSpiceMetabolism: [float, float]
@@ -203,21 +222,22 @@ agentStartingSugar: [float, float]
     Set agent starting sugar hold.
     Default: [10, 40]
 
-agentStartingQuadrants: [int (,int, int, int)]
-    Set quadrants agents will initially be placed.
-    Quadrant 1 begins in the top left.
-    Quadrant 2 begins in the top right.
-    Quadrant 3 begins in the bottom right.
-    Quadrant 4 begins in the bottom left.
-    Default: [1, 2, 3, 4]
-
 agentSugarMetabolism: [float, float]
     Set agent metabolism for sugar per timestep.
     Default: [1, 4]
 
+agentTagPreferences: bool
+    Set whether agents calculate welfare based on cultural tag preferences.
+    Note: Requires agents have a cultural tag string length greater than zero.
+    Default: false
+
 agentTagStringLength: int
     Set agent cultural tags string length.
     Default: 0
+
+agentTagging: boolean
+    Set whether agents will exert cultural pressure by flipping neighboring agent cultural tags.
+    Default: true
 
 agentTradeFactor: [float, float]
     Set agent trade aggressiveness.
@@ -255,7 +275,7 @@ diseaseAggressionPenalty: [float, float]
 
 diseaseFertilityPenalty: [float, float]
     Set the impact a disease will have on an agent's fertility.
-    Note: Negative values constitute a lack of fertility.
+    Note: Negative values constitute a fertility decrease.
     Default: [0, 0]
 
 diseaseMovementPenalty: [int, int]
@@ -265,12 +285,12 @@ diseaseMovementPenalty: [int, int]
 
 diseaseSpiceMetabolismPenalty: [float, float]
     Set the impact a disease will have on an agent's spice metabolism rate.
-    Note: Negative values constitute a decrease in agent metabolism.
+    Note: Negative values constitute a decrease in agent spice metabolism.
     Default: [0, 0]
 
 diseaseSugarMetabolismPenalty: [float, float]
     Set the impact a disease will have on an agent's sugar metabolism rate.
-    Note: Negative values constitute a decrease in agent metabolism.
+    Note: Negative values constitute a decrease in agent sugar metabolism.
     Default: [0, 0]
 
 diseaseTagStringLength: [int, int]
@@ -282,6 +302,11 @@ diseaseVisionPenalty: [int, int]
     Set the impact a disease will have on an agent's vision.
     Note: Negative values constitute a decrease in agent vision.
     Default: [0, 0]
+
+environmentEquator: int
+    Set the equator of the environment for seasonal changes.
+    Note: Value of -1 causes equator to be set at the midpoint of the environment.
+    Default: -1
 
 environmentHeight: int
     Set the height in cells of the Sugarscape environment.
@@ -309,6 +334,22 @@ environmentPollutionDiffusionDelay: int
     Set the delay interval in timesteps when pollution is diffused across the environment.
     Default: 0
 
+environmentPollutionDiffusionTimeframe: [int, int]
+    Set the start and end timesteps during which pollution diffusion is active.
+    Note: Value of -1 for the start sets the start timestep to 0.
+    Note: Value of -1 for the end sets the end timestep to the end of the simulation.
+    Default: [0, 0]
+
+environmentPollutionTimeframe: [int, int]
+    Set the start and end timesteps during which consumption and production pollution are active.
+    Note: Value of -1 for the start sets the start timestep to 0.
+    Note: Value of -1 for the end sets the end timestep to the end of the simulation.
+    Default: [0, 0]
+
+environmentQuadrantSizeFactor: float
+    Set the proportion of each corner of the screen taken up by the agents' starting quadrants.
+    Default: 1
+
 environmentSeasonalGrowbackDelay: int
     Set the delay interval in timesteps when resources are regrown when cell is in a dry season.
     Default: 0
@@ -322,6 +363,10 @@ environmentSpiceConsumptionPollutionFactor: float
     Set the amount of pollution generated by an agent consuming spice at a cell.
     Default: 0
 
+environmentSpicePeaks: [[int, int], ...]
+    Set the coordinates for spice peaks in the environment.
+    Default: [[15, 15], [35, 35]]
+
 environmentSpiceProductionPollutionFactor: float
     Set the amount of pollution generated by an agent collecting spice at a cell.
     Default: 0
@@ -331,9 +376,21 @@ environmentSpiceRegrowRate: int
     Each cell can only grow up to their maximum spice value.
     Default: 0
 
+environmentStartingQuadrants: [int (,int, int, int)]
+    Set environment quadrants in which agents will initially be placed.
+    Quadrant 1 begins in the top left.
+    Quadrant 2 begins in the top right.
+    Quadrant 3 begins in the bottom right.
+    Quadrant 4 begins in the bottom left.
+    Default: [1, 2, 3, 4]
+
 environmentSugarConsumptionPollutionFactor: float
     Set the amount of pollution generated by an agent consuming sugar at a cell.
     Default: 0
+
+environmentSugarPeaks: [[int, int], ...]
+    Set the coordinates for sugar peaks in the environment.
+    Default: [[15, 35], [35, 15]]
 
 environmentSugarProductionPollutionFactor: float
     Set the amount of pollution generated by an agent collecting sugar at a cell.
@@ -343,6 +400,11 @@ environmentSugarRegrowRate: int
     Set the amount of sugar regrown across the environment per timestep.
     Each cell can only grow up to their maximum sugar value.
     Default: 1
+
+environmentTribePerQuadrant: bool
+    Set whether starting quadrants are initially populated by a single tribe.
+    Note: This will overwrite the number of tribes with the number of starting quadrants.
+    Default: false
 
 environmentUniversalSpiceIncomeInterval: int
     Set the interval in timesteps when environment produces universal basic spice income.
@@ -356,14 +418,18 @@ environmentWidth: int
     Set the width in cells of the Sugarscape environment.
     Default: 50
 
+environmentWraparound: bool
+    Set whether the environment is a torus (wraparound) or a plane (no wraparound).
+    Default: true
+
 headlessMode: bool
     Set whether the GUI is enabled.
     Default: false
 
 interfaceHeight: int
     Set number of pixels for GUI height.
-    Default: 1000
     Note: Values below zero will cause the interface to fit to 1/2 total display height.
+    Default: 1000
 
 interfaceWidth: int
     Set number of pixels for GUI width.
@@ -373,6 +439,15 @@ interfaceWidth: int
 logfile: path
     Set the path of the log file.
     Default: ""
+
+logfileFormat: string
+    Set the file format for the log file.
+    Default: "json"
+
+neighborhoodMode: string
+    Set the type of neighborhood adjacency used by agents and environment cells.
+    Options: "moore", "vonNeumann"
+    Default: "vonNeumann"
 
 profileMode: bool
     Set whether performance profiling mode is enabled.
@@ -389,8 +464,13 @@ startingAgents: int
     Default: 500
 
 startingDiseases: int
-    Set the number of diseases placed in the initial population.
+    Set the number of distinct diseases at simulation start.
     Default: 0
+
+startingDiseasesPerAgent: [int, int]
+    Set the number of diseases given to each agent at simulation start.
+    Note: [0, 0] will give each starting disease to a unique agent.
+    Default: [0, 0]
 
 timesteps: int
     Set the number of timesteps the simulation runs.
@@ -398,9 +478,9 @@ timesteps: int
     Default: 200
 
 Other JSON Configurable Options:
-decisionModels: [string, ...]
-    Set the decision models (ethical theories) to be tested in data collection.
-    Default: ["benthamHalfLookaheadBinary", "egoisticHalfLookaheadBinary", "rawSugarscape"]
+decisionModels: [[string, ...], ...]
+    Set the agent decision models to be tested in data collection.
+    Default: [["none"]]
 
 jobUpdateFrequency: int
     Set the frequency at which the number of remaining jobs is reported.
@@ -414,20 +494,16 @@ numSeeds: int
     Set the number of random seeds to be tested in data collection.
     Default: 100
 
-pathToBash: path
-    Set the path to the local Bash installation.
-    Note: Bash is required to run the data collection.
-    Default: "bash"
-
-pathToPython: path
-    Set the path to the local Python 3 installation.
-    Note: Python 3 is required to run the simulation.
-    Default: "python"
-
 plots: [string, ...]
     Set the plots to be created once data has been collected.
-    Default: ["population", "meanttl", "starvationCombat", "wealth", "wealthNormalized"]
+    Default: ["deaths", "meanAgeAtDeath", "meanttl", "meanWealth", "population", "wealth"]
 
 plotTimesteps: int
-    Set the number of timesteps to plot.
+    Set the number of timesteps to plot in graphs as the X axis.
+    Note: This option does not control how many timesteps the simulation runs.
     Default: 1000
+
+pythonAlias: string
+    Set the alias to the local Python 3 installation.
+    Note: Python 3 is required to run the simulation.
+    Default: "python"
